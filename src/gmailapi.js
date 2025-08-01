@@ -1,9 +1,5 @@
-const express = require('express');
 const { google } = require('googleapis');
 require('dotenv').config();
-
-const app = express();
-const port = 3000;
 
 const oAuth2Client = new google.auth.OAuth2(
   process.env.CLIENT_ID,
@@ -11,21 +7,22 @@ const oAuth2Client = new google.auth.OAuth2(
   process.env.REDIRECT_URI
 );
 
-// Set refresh token (from prior authorization)
+// Set the refresh token
 oAuth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 
 const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
 
-app.get('/', async (req, res) => {
+const readGmailMiddleware = async (req, res, next) => {
   try {
     const response = await gmail.users.messages.list({
       userId: 'me',
       q: 'is:unread',
+      maxResults: 5, // change as needed
     });
 
     const messages = response.data.messages || [];
 
-    const unreadEmails = await Promise.all(messages.map(async (msg) => {
+    const emailData = await Promise.all(messages.map(async (msg) => {
       const msgData = await gmail.users.messages.get({
         userId: 'me',
         id: msg.id,
@@ -33,20 +30,19 @@ app.get('/', async (req, res) => {
 
       const headers = msgData.data.payload.headers;
 
-      const from = headers.find(h => h.name === 'From')?.value;
-      const subject = headers.find(h => h.name === 'Subject')?.value;
-      const snippet = msgData.data.snippet;
-
-      return { from, subject, snippet };
+      return {
+        from: headers.find(h => h.name === 'From')?.value,
+        subject: headers.find(h => h.name === 'Subject')?.value,
+        snippet: msgData.data.snippet,
+      };
     }));
 
-    res.json(unreadEmails);
-  } catch (error) {
-    console.error('Error fetching unread emails:', error);
-    res.status(500).send('Failed to read emails');
+    req.emails = emailData;
+    next();
+  } catch (err) {
+    console.error('Failed to read Gmail:', err);
+    res.status(500).json({ error: 'Failed to read Gmail' });
   }
-});
+};
 
-app.listen(port, () => {
-  console.log(`Gmail reader running at http://localhost:${port}`);
-});
+module.exports = readGmailMiddleware;
