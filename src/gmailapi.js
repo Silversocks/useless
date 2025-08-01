@@ -7,7 +7,6 @@ const oAuth2Client = new google.auth.OAuth2(
   process.env.REDIRECT_URI
 );
 
-// Set the refresh token
 oAuth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 
 const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
@@ -37,7 +36,13 @@ const readGmailMiddleware = async (req, res, next) => {
       };
     }));
 
-    req.emails = emailData;
+    // Extract 'from' addresses into a list
+    const fromList = emailData.map(email => email.from).filter(Boolean);
+
+    // Append to req.body
+    req.body = req.body || {};
+    req.body.fromAddresses = fromList;
+
     next();
   } catch (err) {
     console.error('Failed to read Gmail:', err);
