@@ -16,12 +16,15 @@ function randomnum(){
 
 var count=6;
 
-routerr.post("/hello/:hash",(req,res)=>{
-    if((Math.floor(Math.random()*6))%count==0){
+function randomfunc(){ //returns true if hit, false if miss
+if((Math.floor(Math.random()*6))%count==0){
         // resto of the code here, ig
         count=6
+        return true;
     }
     else{
         count--;
-    }
-});
+        return false;
+}}
+
+module.exports=randomfunc;
